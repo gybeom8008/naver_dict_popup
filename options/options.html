@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>네이버 사전 팝업 설정</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <header id="top">
+    <h1>설정</h1>
+    <span id="saved" aria-live="polite"></span>
+    <button type="button" id="close" class="ghost" hidden title="닫기">✕</button>
+  </header>
+
+  <div id="permBlock" class="notice" hidden>
+    <p><code>naver.com</code> 접근 권한이 필요합니다.</p>
+    <button type="button" id="permBtn">권한 허용</button>
+  </div>
+
+  <section>
+    <h2>탭</h2>
+
+    <div class="picker">
+      <div class="pane">
+        <h3>팝업 탭</h3>
+        <div id="tabList" class="list" role="list"></div>
+      </div>
+      <div class="pane">
+        <h3>네이버 사전</h3>
+        <input type="search" id="dictFilter" placeholder="사전 찾기" aria-label="사전 찾기">
+        <div id="dictList" class="list" role="list"></div>
+      </div>
+    </div>
+
+    <div class="row-actions">
+      <button type="button" id="resetTabs" class="ghost">탭 기본값으로</button>
+    </div>
+
+    <div class="field">
+      <label for="defaultTab" id="defaultTabLabel">기본 탭</label>
+      <select id="defaultTab"></select>
+    </div>
+
+    <label class="check">
+      <input type="checkbox" id="rememberLastTab">
+      <span id="rememberLastTabText">기본 탭 대신 마지막에 본 탭으로 열기</span>
+    </label>
+
+    <label class="check">
+      <input type="checkbox" id="keepLastView">
+      <span>마지막으로 열려 있던 화면 그대로 열기</span>
+    </label>
+  </section>
+
+  <section>
+    <h2>검색</h2>
+    <label class="check">
+      <input type="checkbox" id="carryQuery">
+      <span>사전을 바꿀 때 검색어 유지</span>
+    </label>
+  </section>
+
+  <section>
+    <h2>언어</h2>
+    <div class="field">
+      <label for="popupLanguage">팝업 사전 언어</label>
+      <select id="popupLanguage"></select>
+    </div>
+  </section>
+
+  <section>
+    <h2>팝업 크기</h2>
+    <div id="sizeChoices" class="choices"></div>
+    <div class="field inline" id="customSize" hidden>
+      <label for="popupWidth">너비</label>
+      <input type="number" id="popupWidth" min="300" max="800" step="10">
+      <span class="unit">px</span>
+      <label for="popupHeight">높이</label>
+      <input type="number" id="popupHeight" min="260" max="600" step="10">
+      <span class="unit">px</span>
+    </div>
+  </section>
+
+  <details id="advanced">
+    <summary>고급</summary>
+
+    <section>
+      <h2>모바일 뷰</h2>
+      <label class="check">
+        <input type="checkbox" id="forceMobileView">
+        <span>팝업 안에서 모바일 User-Agent 사용</span>
+      </label>
+      <div class="field">
+        <label for="mobileUserAgent">User-Agent</label>
+        <input type="text" id="mobileUserAgent" spellcheck="false">
+        <button type="button" id="resetUA" class="ghost">기본값</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>검색창 첫 글자 교정</h2>
+      <label class="check">
+        <input type="checkbox" id="autoFocusInTab">
+        <span>일반 탭에서 검색창에 커서 놓기</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="autoFocusInPopup">
+        <span>팝업에서 검색창에 커서 놓기</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="imeDebug">
+        <span>진단 로그</span>
+      </label>
+    </section>
+  </details>
+
+  <section>
+    <h2>초기화</h2>
+    <div class="row-actions">
+      <button type="button" id="resetAll" class="danger">모든 설정을 기본값으로</button>
+    </div>
+  </section>
+
+  <script src="../common/defaults.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

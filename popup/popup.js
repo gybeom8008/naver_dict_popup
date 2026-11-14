@@ -1,0 +1,255 @@
+'use strict';
+
+const nvdEl = (id) => document.getElementById(id);
+
+let settings = null;
+let activeId = null;
+
+/* 아이프레임 안의 콘텐츠 스크립트가 알려 주는 현재 상태 */
+let viewState = { query: '', url: null };
+let saveUrlTimer = null;
+
+/* 아이프레임 안의 콘텐츠 스크립트가 "여기는 팝업이고 이 UA·언어를 쓴다"는 것을
+   document_start 시점에 동기적으로 알아야 해서 window.name 으로 전달한다. */
+function frameNameFor(s) {
+  const params = new URLSearchParams();
+  if (s.forceMobileView) params.set('ua', s.mobileUserAgent || NVD_MOBILE_UA);
+  const langs = nvdLanguageTags(s);
+  if (langs) params.set('lang', langs.join(','));
+  const extra = params.toString();
+  return extra ? NVD_FRAME_NAME + '|' + extra : NVD_FRAME_NAME;
+}
+
+function activeDict() {
+  return activeId ? nvdDict(activeId) : null;
+}
+
+/* 팝업을 열 때 보여 줄 화면 */
+function initialView() {
+  if (settings.keepLastView && settings.lastUrl) {
+    const dict = nvdDictForUrl(settings.lastUrl);
+    if (dict && settings.tabs.includes(dict.id)) {
+      return { id: dict.id, url: settings.lastUrl };
+    }
+  }
+  const id = initialTabId();
+  const dict = nvdDict(id);
+  return { id: id, url: dict ? dict.url : 'about:blank' };
+}
+
+function initialTabId() {
+  if (settings.rememberLastTab &&
+      settings.lastTabId &&
+      settings.tabs.includes(settings.lastTabId)) {
+    return settings.lastTabId;
+  }
+  if (settings.tabs.includes(settings.defaultTabId)) return settings.defaultTabId;
+  return settings.tabs[0];
+}
+
+function applyChrome() {
+  const size = nvdPopupSize(settings);
+  const root = document.documentElement;
+  root.style.setProperty('--popup-w', size.width + 'px');
+  root.style.setProperty('--popup-h', size.height + 'px');
+
+  const view = nvdEl('view');
+  const wanted = frameNameFor(settings);
+  if (view.name !== wanted) view.name = wanted;
+}
+
+function renderTabs() {
+  const host = nvdEl('tabs');
+  host.textContent = '';
+
+  for (const id of settings.tabs) {
+    const dict = nvdDict(id);
+    if (!dict) continue;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = dict.label;
+    button.title = dict.url;
+    button.dataset.id = dict.id;
+    button.setAttribute('role', 'tab');
+    button.addEventListener('click', () => selectTab(dict.id, { reload: dict.id === activeId }));
+    host.appendChild(button);
+  }
+  markActive();
+}
+
+function markActive() {
+  for (const button of nvdEl('tabs').children) {
+    const on = button.dataset.id === activeId;
+    button.classList.toggle('active', on);
+    button.setAttribute('aria-selected', on ? 'true' : 'false');
+  }
+}
+
+function selectTab(id, options) {
+  const dict = nvdDict(id);
+  if (!dict || !settings.tabs.includes(id)) return;
+
+  const opts = options || {};
+  const changed = activeId !== id;
+
+  activeId = id;
+  markActive();
+
+  if (changed || opts.reload) {
+    /* 사전을 바꿀 때 검색어를 이어 간다. 같은 탭을 다시 누르면 첫 화면으로. */
+    const carry = changed && !opts.reload && settings.carryQuery && viewState.query;
+    openUrl(carry ? nvdSearchUrl(dict, viewState.query) : dict.url);
+  }
+
+  if (settings.rememberLastTab && opts.persist !== false) {
+    browser.storage.local.set({ lastTabId: id }).catch(() => {});
+  }
+}
+
+/* name 은 문서를 새로 불러오기 전에 정해져 있어야 한다 */
+function openUrl(url) {
+  const view = nvdEl('view');
+  view.name = frameNameFor(settings);
+  view.src = url || 'about:blank';
+}
+
+function reloadView() {
+  const dict = activeDict();
+  if (dict) openUrl(dict.url);
+}
+
+function scheduleLastUrlSave() {
+  clearTimeout(saveUrlTimer);
+  saveUrlTimer = setTimeout(() => {
+    if (!settings.keepLastView || !viewState.url) return;
+    browser.storage.local.set({ lastUrl: viewState.url }).catch(() => {});
+  }, 400);
+}
+
+/* ── 설정 패널 (설정 페이지를 그대로 끼워 넣는다) ───────── */
+
+function settingsOpen() {
+  return !nvdEl('overlay').hidden;
+}
+
+function toggleSettings(force) {
+  const overlay = nvdEl('overlay');
+  const frame = nvdEl('settings');
+  const open = typeof force === 'boolean' ? force : !settingsOpen();
+
+  if (open) {
+    frame.src = browser.runtime.getURL('options/options.html?embed=1');
+    overlay.hidden = false;
+  } else {
+    overlay.hidden = true;
+    frame.src = 'about:blank';
+    if (settings.autoFocusInPopup) nvdEl('view').focus();
+  }
+  nvdEl('gear').classList.toggle('on', open);
+}
+
+/* ── 호스트 권한 ─────────────────────────────────────── */
+
+async function refreshPermissionNotice() {
+  let granted = true;
+  try {
+    granted = await browser.permissions.contains({ origins: NVD_HOST_ORIGINS });
+  } catch (e) {
+    granted = true;
+  }
+  nvdEl('perm').hidden = granted;
+}
+
+/* ── 시작 ────────────────────────────────────────────── */
+
+async function init() {
+  settings = await nvdLoadSettings();
+  applyChrome();
+  renderTabs();
+
+  const start = initialView();
+  activeId = start.id;
+  markActive();
+  openUrl(start.url);
+
+  refreshPermissionNotice();
+
+  browser.runtime.onMessage.addListener((message, sender) => {
+    if (!message || message.type !== 'nvd-view-state') return;
+    if (sender && sender.tab) return;           /* 일반 탭에서 온 것은 무시 */
+    viewState = { query: message.query || '', url: message.url || null };
+    if (settings.keepLastView) scheduleLastUrlSave();
+  });
+
+  nvdEl('view').addEventListener('load', () => {
+    const view = nvdEl('view');
+
+    /* 아이프레임의 browsing context 이름은 문서가 바뀌어도 유지되지만,
+       만약을 위해 다시 붙여 둔다 (다음 이동에 대비). */
+    const wanted = frameNameFor(settings);
+    view.setAttribute('name', '');
+    view.setAttribute('name', wanted);
+
+    /* 아이프레임이 키보드 포커스를 받아야 그 안의 검색창에 타이핑할 수 있다 */
+    if (settings.autoFocusInPopup && !settingsOpen()) view.focus();
+  });
+
+  /* 팝업이 열리자마자 바로 타이핑할 수 있도록 */
+  if (settings.autoFocusInPopup) nvdEl('view').focus();
+
+  nvdEl('gear').addEventListener('click', () => toggleSettings());
+
+  nvdEl('openTab').addEventListener('click', async () => {
+    const dict = activeDict();
+    if (!dict) return;
+    try {
+      await browser.tabs.create({ url: dict.url });
+      window.close();
+    } catch (e) {}
+  });
+
+  nvdEl('permBtn').addEventListener('click', async () => {
+    try {
+      const granted = await browser.permissions.request({ origins: NVD_HOST_ORIGINS });
+      if (granted) {
+        nvdEl('perm').hidden = true;
+        reloadView();
+      }
+    } catch (e) {}
+  });
+
+  nvdEl('permHide').addEventListener('click', () => { nvdEl('perm').hidden = true; });
+
+  window.addEventListener('message', (event) => {
+    if (event.origin !== location.origin) return;
+    if (event.data && event.data.type === 'nvd-close-settings') toggleSettings(false);
+  });
+
+  browser.storage.onChanged.addListener(async (changes, area) => {
+    if (area !== 'local') return;
+    const keys = Object.keys(changes);
+    if (keys.every((k) => k === 'lastTabId' || k === 'lastUrl')) return;
+
+    const before = settings;
+    const beforeUrl = activeDict() ? activeDict().url : null;
+    settings = await nvdLoadSettings();
+
+    applyChrome();
+    renderTabs();
+
+    const frameChanged = frameNameFor(before) !== frameNameFor(settings);
+
+    if (!settings.tabs.includes(activeId)) {
+      const fallback = initialTabId();
+      activeId = fallback;
+      markActive();
+      openUrl(nvdDict(fallback).url);
+    } else {
+      const dict = activeDict();
+      if (frameChanged || (dict && dict.url !== beforeUrl)) reloadView();
+    }
+  });
+}
+
+init();
