@@ -1,4 +1,4 @@
-# 네이버 사전 (비공식) — Firefox 확장기능
+# 네이버 사전 (비공식) — Firefox · Chrome 확장기능
 
 툴바 아이콘을 누르면 아이콘 바로 아래에 작은 팝업이 열리고, 그 안에서 네이버 사전을
 모바일 뷰로 씁니다. 더불어 사전 검색창에 바로 타이핑할 때 **첫 글자의 한/영이 뒤바뀌는
@@ -8,10 +8,30 @@
 
 ## 설치
 
+한 폴더로 Firefox 와 Chrome(크롬북 포함) 양쪽에 설치됩니다.
+
+### Chrome · 크롬북
+
+1. 저장소를 내려받아 압축을 풉니다. (GitHub 의 **Code → Download ZIP**)
+2. `chrome://extensions` 를 열고 오른쪽 위 **개발자 모드**를 켭니다.
+3. **압축해제된 확장 프로그램 로드** → 압축을 푼 폴더(`manifest.json` 이 들어 있는 폴더)를 고릅니다.
+4. 툴바의 퍼즐 조각 메뉴에서 **고정**하면 아이콘이 보입니다.
+
+- 크롬북에서는 내려받은 폴더를 **내 파일 → 다운로드** 같은 ChromeOS 쪽 폴더에 두세요.
+  Linux 파일 영역에 두면 고를 수 없을 수 있습니다.
+- 폴더를 지우거나 옮기면 확장기능도 사라지므로 압축을 푼 폴더는 그대로 둡니다.
+- 새 버전으로 바꿀 때는 같은 자리에 파일을 덮어쓴 뒤 확장기능 카드의 **새로고침(↻)** 을 누릅니다.
+- 확장기능 카드에 **오류** 버튼이 생기고 `browser_specific_settings` 나 `webRequestBlocking`,
+  `background.scripts` 에 대한 경고가 보일 수 있습니다. Firefox 전용 항목이라 Chrome 이
+  무시한다는 뜻이며, 동작에는 영향이 없습니다.
+- Chrome 은 설치할 때 `naver.com` 접근 권한을 바로 허용하므로 따로 누를 것이 없습니다.
+
+### Firefox
+
 설치 파일(`.xpi`)은 [Releases](https://github.com/gybeom8008/naver_dict_popup/releases) 에서 받거나,
 아래 [다시 빌드하기](#다시-빌드하기)로 직접 만듭니다. (`.xpi` 는 확장자만 다른 zip 입니다.)
 
-### 바로 설치해서 써 보기
+#### 바로 설치해서 써 보기
 
 1. `about:debugging#/runtime/this-firefox` 열기
 2. **임시 부가 기능 로드** → 받은 `.xpi` 파일 선택
@@ -19,7 +39,7 @@
 
 Firefox 를 재시작하면 사라지므로, 계속 쓰려면 아래 중 하나가 필요합니다.
 
-### 계속 쓰려면
+#### 계속 쓰려면
 
 정식판 Firefox 는 **서명되지 않은 확장기능을 영구 설치하지 못합니다.**
 
@@ -38,7 +58,7 @@ Firefox 를 재시작하면 사라지므로, 계속 쓰려면 아래 중 하나�
 - **Developer Edition / Nightly / ESR**: `about:config` 에서
   `xpinstall.signatures.required` 를 `false` 로 바꾼 뒤 이 `.xpi` 를 그대로 설치
 
-### 다시 빌드하기
+#### 다시 빌드하기
 
 ```
 pwsh -File build.ps1
@@ -46,9 +66,9 @@ pwsh -File build.ps1
 
 `dist/naver-dict-popup-<버전>.xpi` 가 만들어집니다. (`dist/` 는 저장소에 올리지 않습니다.)
 
-### 권한 허용 (중요)
+#### 권한 허용 (중요)
 
-Manifest V3 에서는 호스트 권한이 **설치만으로 허용되지 않습니다.** 허용 전에는
+Firefox 의 Manifest V3 에서는 호스트 권한이 **설치만으로 허용되지 않습니다.** 허용 전에는
 모바일 뷰와 검색창 자동 포커스가 동작하지 않습니다. 팝업이나 설정 화면 위쪽에 뜨는
 **허용** 버튼을 누르거나, `about:addons` → 이 확장기능 → **권한**에서
 `naver.com` 접근을 켜 주세요.
@@ -109,7 +129,7 @@ Manifest V3 에서는 호스트 권한이 **설치만으로 허용되지 않습�
 
 **작게(340×440) · 중간(420×560) · 크게(560×600) · 직접 입력** 중에서 고릅니다.
 너비·높이 입력칸은 **직접 입력**을 골랐을 때만 나타납니다.
-Firefox 팝업의 상한은 800 × 600 입니다.
+Firefox 와 Chrome 모두 팝업 상한이 800 × 600 입니다.
 
 ### 고급
 
@@ -117,7 +137,7 @@ Firefox 팝업의 상한은 800 × 600 입니다.
 
 | 항목 | 설명 |
 | --- | --- |
-| 모바일 뷰 | 팝업 안의 요청을 모바일 User-Agent 로 보냅니다. UA 문자열도 바꿀 수 있습니다 |
+| 모바일 뷰 | 팝업 안의 요청을 모바일 User-Agent 로 보냅니다. UA 문자열도 바꿀 수 있습니다. 기본값은 지금 쓰는 브라우저의 안드로이드판 UA 입니다 |
 | 검색창 첫 글자 교정 | 일반 탭 / 팝업을 따로 켜고 끕니다. 아래 설명 참고 |
 | 진단 로그 | 사전 페이지 콘솔에 포커스 처리 과정을 기록 |
 
@@ -130,13 +150,22 @@ Firefox 팝업의 상한은 800 × 600 입니다.
 - `m.dict.naver.com` 은 `dict.naver.com` 으로 307 리다이렉트됩니다. 즉 **별도 모바일
   주소가 없고**, 서버가 User-Agent 를 보고 모바일 페이지를 내려줍니다.
   그래서 백그라운드 스크립트가 팝업에서 나가는 요청의 `User-Agent` 헤더만 바꿉니다.
+  - Firefox 는 `webRequest` 로 요청마다 출처가 팝업인지 확인해서 바꿉니다 (`background.js`).
+  - Chrome 은 일반 설치 확장기능에 차단형 `webRequest` 를 허용하지 않으므로,
+    `declarativeNetRequest` 세션 규칙으로 **어느 탭에도 속하지 않는 요청**(tabId −1,
+    즉 팝업에서 나간 요청)만 바꿉니다 (`background-chrome.js`). 크롬이 데스크톱임을 알리는
+    클라이언트 힌트 헤더(`Sec-CH-UA-Mobile`, `Sec-CH-UA-Platform`)도 함께 모바일로 맞춥니다.
 - 언어별 사전은 SPA 라서 **서버 응답이 UA와 무관하게 완전히 동일**하고, 브라우저 안에서
   `navigator` 를 보고 모바일 여부를 정합니다. 그래서 팝업 안의 프레임에서만
-  `navigator.userAgent` 도 함께 모바일로 바꿉니다. 팝업 프레임인지는 아이프레임의
-  `window.name` 표식으로 판별하므로, 일반 탭의 네이버 페이지는 건드리지 않습니다.
+  `navigator.userAgent` 도 함께 모바일로 바꿉니다. (Chrome 에서는 `navigator.userAgentData` 도)
+  팝업 프레임인지는 아이프레임의 `window.name` 표식으로 판별하므로, 일반 탭의 네이버
+  페이지는 건드리지 않습니다.
+- Chrome 은 아이프레임이 만들어질 때의 이름만 `window.name` 으로 쓰고, 나중에 바꾼 이름은
+  반영하지 않습니다. 그래서 팝업은 설정(UA·언어)이 바뀌면 사전 아이프레임을 새로 만듭니다.
 - 프레임 차단 헤더(`X-Frame-Options`, CSP `frame-ancestors`)는 2026-09 확인 기준으로
   네이버 사전이 보내지 않습니다. 나중에 붙어도 팝업 안에서만 무력화하도록
-  안전장치를 넣어 두었습니다.
+  안전장치를 넣어 두었습니다. (Chrome 에서는 `X-Frame-Options` 만 해당. CSP 의
+  `frame-ancestors` 한 줄만 골라 빼는 기능이 `declarativeNetRequest` 에 없기 때문입니다.)
 
 ---
 
@@ -178,7 +207,11 @@ SPA 가 검색창을 늦게 그리므로 최대 6초까지 기다립니다.
 - **팝업 안에서는 로그인 상태가 공유되지 않을 수 있습니다.** Firefox 의 전체 쿠키 보호는
   쿠키를 최상위 출처(=이 확장기능)별로 분리합니다. 단어장처럼 로그인이 필요한 기능은
   `↗` 로 새 탭에서 여세요.
-- 팝업 크기는 Firefox 가 800 × 600 으로 제한합니다.
+- 팝업 크기는 Firefox 와 Chrome 모두 800 × 600 으로 제한합니다.
+- Chrome 에서는 네이버 언어 메뉴로 고른 언어(`DICT_LOCALE3` 쿠키)를 **요청 헤더에서는**
+  빼지 못합니다. 페이지 안에서는 가려지므로 언어별 사전은 설정을 따르지만, 사전홈은 네이버
+  언어 메뉴로 다른 언어를 고른 적이 있으면 그 언어로 보일 수 있습니다. 그럴 때는 팝업의
+  사전홈에서 언어 메뉴를 한국어로 다시 고르면 됩니다.
 - `↗` 로 새 탭에서 열면 그 탭은 브라우저 언어를 그대로 따릅니다. 브라우저가 한국어가
   아니면 네이버가 외국인용 사전으로 보낼 수 있습니다.
 - 콘텐츠 스크립트는 `dict.naver.com` 과 그 하위 도메인에서만 돕니다.
@@ -190,11 +223,14 @@ SPA 가 검색창을 늦게 그리므로 최대 6초까지 기다립니다.
 
 | 파일 | 역할 |
 | --- | --- |
-| `manifest.json` | MV3 선언. Firefox 140+ (Android 142+) |
+| `manifest.json` | MV3 선언. Firefox 140+ (Android 142+), Chrome 121+ (크롬북 포함) |
 | `common/defaults.js` | 사전 목록(53개), 기본값, 검증, 공용 헬퍼 |
-| `background.js` | 팝업 요청의 User-Agent·Accept-Language 교체, 프레임 차단 헤더 안전장치 |
+| `background.js` | (Firefox) 팝업 요청의 User-Agent·Accept-Language 교체, 프레임 차단 헤더 안전장치 |
+| `background-chrome.js` | (Chrome) 같은 일을 `declarativeNetRequest` 규칙으로 하는 서비스 워커 |
 | `popup/` | 팝업 UI (탭 바 + 아이프레임 + 설정 오버레이) |
 | `options/` | 설정 화면. 팝업 오버레이와 `about:addons` 양쪽에서 같은 파일을 씀 |
-| `content/naver-dict.js` | 팝업 프레임의 navigator(UA·언어) 변경 + 검색창 포커스 + 검색어 전달 |
+| `content/page-patch.js` | 팝업 프레임의 navigator(UA·언어) 변경. 페이지 공간(`world: MAIN`)에서 실행 |
+| `content/naver-dict.js` | 검색창 포커스 + 팝업에 검색어 전달 |
+| `icons/` | 아이콘. Chrome 이 SVG 아이콘을 지원하지 않아 PNG 를 쓰고, `icon.svg` 는 원본 |
 | `build.ps1` | `dist/*.xpi` 설치 파일 생성 |
 | `references/` | 조사용으로 저장해 둔 네이버 사전 페이지. 확장기능에도 저장소에도 포함되지 않음 |

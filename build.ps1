@@ -4,6 +4,7 @@
       pwsh -File build.ps1
 
   dist\naver-dict-popup-<버전>.xpi 가 생긴다. (.xpi 는 확장자만 다른 zip 이다.)
+  크롬은 이 파일이 필요 없다. 저장소 폴더를 '압축해제된 확장 프로그램 로드'로 바로 읽는다.
   references\ 처럼 확장기능에 필요 없는 것은 넣지 않는다.
 #>
 
@@ -17,6 +18,7 @@ $version = $manifest.version
 $items = @(
   'manifest.json',
   'background.js',
+  'background-chrome.js',
   'common',
   'content',
   'icons',

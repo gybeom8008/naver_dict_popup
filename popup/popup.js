@@ -53,9 +53,6 @@ function applyChrome() {
   root.style.setProperty('--popup-w', size.width + 'px');
   root.style.setProperty('--popup-h', size.height + 'px');
 
-  const view = nvdEl('view');
-  const wanted = frameNameFor(settings);
-  if (view.name !== wanted) view.name = wanted;
 }
 
 function renderTabs() {
@@ -107,10 +104,34 @@ function selectTab(id, options) {
   }
 }
 
+/* 사전 아이프레임을 이름(표식)이 맞는 상태로 준비한다.
+   크롬은 아이프레임이 문서에 들어갈 때의 name 만 창 이름(window.name)으로 쓰고,
+   나중에 name 을 바꿔도 반영하지 않는다. 그래서 이름이 달라져야 하면
+   아이프레임을 새로 만들어 바꿔 끼운다. (파이어폭스도 같은 방식으로 문제없다.) */
+function prepareView() {
+  const wanted = frameNameFor(settings);
+  const old = nvdEl('view');
+  if (old && old.getAttribute('name') === wanted) return old;
+
+  const view = document.createElement('iframe');
+  view.id = 'view';
+  view.title = '네이버 사전';
+  view.setAttribute('name', wanted);
+  view.addEventListener('load', onViewLoad);
+
+  if (old) old.replaceWith(view);
+  else nvdEl('overlay').before(view);
+  return view;
+}
+
+function onViewLoad() {
+  /* 아이프레임이 키보드 포커스를 받아야 그 안의 검색창에 타이핑할 수 있다 */
+  if (settings.autoFocusInPopup && !settingsOpen()) nvdEl('view').focus();
+}
+
 /* name 은 문서를 새로 불러오기 전에 정해져 있어야 한다 */
 function openUrl(url) {
-  const view = nvdEl('view');
-  view.name = frameNameFor(settings);
+  const view = prepareView();
   view.src = url || 'about:blank';
 }
 
@@ -180,19 +201,6 @@ async function init() {
     if (sender && sender.tab) return;           /* 일반 탭에서 온 것은 무시 */
     viewState = { query: message.query || '', url: message.url || null };
     if (settings.keepLastView) scheduleLastUrlSave();
-  });
-
-  nvdEl('view').addEventListener('load', () => {
-    const view = nvdEl('view');
-
-    /* 아이프레임의 browsing context 이름은 문서가 바뀌어도 유지되지만,
-       만약을 위해 다시 붙여 둔다 (다음 이동에 대비). */
-    const wanted = frameNameFor(settings);
-    view.setAttribute('name', '');
-    view.setAttribute('name', wanted);
-
-    /* 아이프레임이 키보드 포커스를 받아야 그 안의 검색창에 타이핑할 수 있다 */
-    if (settings.autoFocusInPopup && !settingsOpen()) view.focus();
   });
 
   /* 팝업이 열리자마자 바로 타이핑할 수 있도록 */
