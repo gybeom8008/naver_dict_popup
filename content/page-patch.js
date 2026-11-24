@@ -7,8 +7,10 @@
 
    이 파일은 페이지와 같은 공간에서 돌기 때문에 확장기능 API 도, common/defaults.js 도
    쓸 수 없다. 필요한 값은 팝업이 아이프레임 이름에
-   "nvd-popup-view|ua=...&lang=ko-KR,ko" 형태로 넣어 주고,
-   쿠키 보충 목록은 content/naver-dict.js 가 'nvd-popup-cookies' 이벤트로 건네준다.
+   "nvd-popup-view|ua=...&lang=ko-KR,ko&ck=..." 형태로 넣어 준다.
+   ck 는 크롬에서만 붙는 쿠키 보충 목록인데, 페이지 스크립트가 돌기 전에 꺼내고
+   창 이름에서 바로 지운다. 그 뒤 프레임 안에서 페이지를 옮겨 다니면
+   content/naver-dict.js 가 'nvd-popup-cookies' 이벤트로 다시 건네준다.
    전역 이름을 남기지 않도록 즉시 실행 함수로 감싼다. */
 
 (() => {
@@ -24,6 +26,16 @@
   const params = new URLSearchParams(pieces[1] || '');
   const ua = params.get('ua') || null;
   const langs = params.get('lang') ? params.get('lang').split(',') : null;
+
+  /* 쿠키 값이 창 이름에 남아 있으면 이 프레임이 나중에 다른 사이트로 옮겨 갔을 때
+     그 사이트가 읽을 수 있다. 꺼내자마자 지운다. */
+  let initialCookies = null;
+  if (params.has('ck')) {
+    try { initialCookies = JSON.parse(params.get('ck')); } catch (e) {}
+    params.delete('ck');
+    const rest = params.toString();
+    try { window.name = rest ? FRAME_NAME + '|' + rest : FRAME_NAME; } catch (e) {}
+  }
 
   try {
     const proto = Object.getPrototypeOf(navigator);
@@ -74,12 +86,17 @@
     const cookie = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
     if (!cookie || !cookie.get || !cookie.set) return;
 
-    let extra = [];   /* [이름, 값] 목록 */
+    const valid = (list) => Array.isArray(list)
+      ? list.filter((c) => Array.isArray(c) && c.length === 2 &&
+          typeof c[0] === 'string' && typeof c[1] === 'string')
+      : [];
+
+    let extra = valid(initialCookies);   /* [이름, 값] 목록 */
 
     document.addEventListener('nvd-popup-cookies', (event) => {
       try {
-        const list = JSON.parse(event.detail);
-        if (Array.isArray(list)) extra = list.filter((c) => Array.isArray(c) && c.length === 2);
+        const list = valid(JSON.parse(event.detail));
+        if (list.length) extra = list;
       } catch (e) {}
     });
 

@@ -104,14 +104,36 @@ function selectTab(id, options) {
   }
 }
 
+/* 크롬은 팝업 안의 페이지 스크립트에게 SameSite=Lax 쿠키(로그인 쿠키 NID_SES 등)를
+   document.cookie 로 보여 주지 않는다. 모바일 사전은 페이지를 불러오자마자 그걸 보고
+   로그인 여부를 정하므로, 아이프레임을 만들기 전에 이 주소의 쿠키 중 HttpOnly 가 아닌 것
+   (일반 탭이라면 그 페이지가 읽을 수 있었던 것)을 읽어 이름 표식에 실어 보낸다.
+   content/page-patch.js 가 페이지 스크립트보다 먼저 꺼내 쓰고 창 이름에서 지운다.
+   파이어폭스는 팝업 안 쿠키가 따로 분리되어 있어 이 일을 하지 않는다. */
+async function cookiesFor(url) {
+  if (NVD_IS_FIREFOX || !url || !/^https:\/\/([a-z0-9-]+\.)*naver\.com\//.test(url)) return null;
+  try {
+    const list = await browser.cookies.getAll({ url: url });
+    const visible = list.filter((c) => !c.httpOnly).map((c) => [c.name, c.value]);
+    return visible.length ? visible : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 /* 사전 아이프레임을 이름(표식)이 맞는 상태로 준비한다.
    크롬은 아이프레임이 문서에 들어갈 때의 name 만 창 이름(window.name)으로 쓰고,
    나중에 name 을 바꿔도 반영하지 않는다. 그래서 이름이 달라져야 하면
-   아이프레임을 새로 만들어 바꿔 끼운다. (파이어폭스도 같은 방식으로 문제없다.) */
-function prepareView() {
-  const wanted = frameNameFor(settings);
+   아이프레임을 새로 만들어 바꿔 끼운다. (파이어폭스도 같은 방식으로 문제없다.)
+   쿠키를 실어 보낼 때는 페이지가 창 이름에서 그 부분을 지우므로 늘 새로 만든다. */
+function prepareView(cookies) {
+  let wanted = frameNameFor(settings);
+  if (cookies) {
+    const ck = 'ck=' + encodeURIComponent(JSON.stringify(cookies));
+    wanted += (wanted.includes('|') ? '&' : '|') + ck;
+  }
   const old = nvdEl('view');
-  if (old && old.getAttribute('name') === wanted) return old;
+  if (!cookies && old && old.getAttribute('name') === wanted) return old;
 
   const view = document.createElement('iframe');
   view.id = 'view';
@@ -124,14 +146,25 @@ function prepareView() {
   return view;
 }
 
-function onViewLoad() {
-  /* 아이프레임이 키보드 포커스를 받아야 그 안의 검색창에 타이핑할 수 있다 */
-  if (settings.autoFocusInPopup && !settingsOpen()) nvdEl('view').focus();
+function focusView() {
+  const view = nvdEl('view');
+  if (view) view.focus();
 }
 
-/* name 은 문서를 새로 불러오기 전에 정해져 있어야 한다 */
-function openUrl(url) {
-  const view = prepareView();
+function onViewLoad() {
+  /* 아이프레임이 키보드 포커스를 받아야 그 안의 검색창에 타이핑할 수 있다 */
+  if (settings.autoFocusInPopup && !settingsOpen()) focusView();
+}
+
+/* name 은 문서를 새로 불러오기 전에 정해져 있어야 한다.
+   쿠키를 읽는 사이에 다른 탭을 누르면 마지막 것만 연다. */
+let openSeq = 0;
+
+async function openUrl(url) {
+  const seq = ++openSeq;
+  const cookies = await cookiesFor(url);
+  if (seq !== openSeq) return;
+  const view = prepareView(cookies);
   view.src = url || 'about:blank';
 }
 
@@ -165,7 +198,7 @@ function toggleSettings(force) {
   } else {
     overlay.hidden = true;
     frame.src = 'about:blank';
-    if (settings.autoFocusInPopup) nvdEl('view').focus();
+    if (settings.autoFocusInPopup) focusView();
   }
   nvdEl('gear').classList.toggle('on', open);
 }
@@ -192,7 +225,7 @@ async function init() {
   const start = initialView();
   activeId = start.id;
   markActive();
-  openUrl(start.url);
+  await openUrl(start.url);
 
   refreshPermissionNotice();
 
@@ -204,7 +237,7 @@ async function init() {
   });
 
   /* 팝업이 열리자마자 바로 타이핑할 수 있도록 */
-  if (settings.autoFocusInPopup) nvdEl('view').focus();
+  if (settings.autoFocusInPopup) focusView();
 
   nvdEl('gear').addEventListener('click', () => toggleSettings());
 
