@@ -29,6 +29,11 @@
   팝업 안의 요청에 대해 **권한이 있는 주소에만** 로그인 쿠키(SameSite=Lax/Strict)를 보냅니다.
   사전 페이지는 로그인 상태를 `nid.naver.com`·`gnb.naver.com` 등에 물어보므로, 그곳까지
   권한이 있어야 팝업에서도 로그인이 이어집니다. 콘텐츠 스크립트는 여전히 사전에서만 돕니다.
+- 같은 이유로 Chrome 은 팝업 안의 페이지 스크립트에게 `document.cookie` 로 SameSite=Lax 쿠키를
+  보여 주지 않습니다. 네이버 사전은 로그인 쿠키 `NID_SES` 가 스크립트에 보여야 로그인으로
+  판단하므로(검색 기록 등), `cookies` 권한으로 그 주소의 쿠키 중 HttpOnly 가 아닌 것을 읽어
+  팝업 프레임의 `document.cookie` 에 보충합니다. 일반 탭에서 같은 페이지가 읽을 수 있는
+  범위와 같습니다.
 
 ### Firefox
 
@@ -233,7 +238,7 @@ SPA 가 검색창을 늦게 그리므로 최대 6초까지 기다립니다.
 | `background-chrome.js` | (Chrome) 같은 일을 `declarativeNetRequest` 규칙으로 하는 서비스 워커 |
 | `popup/` | 팝업 UI (탭 바 + 아이프레임 + 설정 오버레이) |
 | `options/` | 설정 화면. 팝업 오버레이와 `about:addons` 양쪽에서 같은 파일을 씀 |
-| `content/page-patch.js` | 팝업 프레임의 navigator(UA·언어) 변경. 페이지 공간(`world: MAIN`)에서 실행 |
+| `content/page-patch.js` | 팝업 프레임의 navigator(UA·언어)와 document.cookie 보정. 페이지 공간(`world: MAIN`)에서 실행 |
 | `content/naver-dict.js` | 검색창 포커스 + 팝업에 검색어 전달 |
 | `icons/` | 아이콘. Chrome 이 SVG 아이콘을 지원하지 않아 PNG 를 쓰고, `icon.svg` 는 원본 |
 | `build.ps1` | `dist/*.xpi` 설치 파일 생성 |

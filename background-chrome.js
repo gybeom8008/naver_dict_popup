@@ -96,3 +96,30 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 nvdSyncRules();
+
+/* 크롬은 확장 팝업 안의 페이지 스크립트에게 SameSite=Lax 쿠키(로그인 쿠키 NID_SES 등)를
+   document.cookie 로 보여 주지 않는다. 네이버는 그걸 보고 로그인 여부를 판단하므로,
+   팝업 프레임의 콘텐츠 스크립트가 물으면 그 주소의 쿠키 중 HttpOnly 가 아닌 것만 돌려준다.
+   일반 탭이라면 같은 페이지가 직접 읽을 수 있었던 범위다. */
+const NVD_POPUP_PAGE = chrome.runtime.getURL('popup/');
+
+function nvdFromPopupFrame(sender) {
+  if (!sender || sender.id !== chrome.runtime.id) return false;
+  if (!sender.frameId) return false;                         /* 최상위 문서(일반 탭)는 제외 */
+  if (!sender.tab) return true;                              /* 툴바 팝업은 탭이 아니다 */
+  return typeof sender.tab.url === 'string' && sender.tab.url.startsWith(NVD_POPUP_PAGE);
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (!message || message.type !== 'nvd-popup-cookies') return;
+  if (!nvdFromPopupFrame(sender)) return;
+
+  let url;
+  try { url = new URL(sender.url); } catch (e) { return; }
+  if (url.protocol !== 'https:' || !/(^|\.)naver\.com$/.test(url.hostname)) return;
+
+  chrome.cookies.getAll({ url: url.href })
+    .then((list) => sendResponse(list.filter((c) => !c.httpOnly).map((c) => [c.name, c.value])))
+    .catch(() => sendResponse([]));
+  return true;
+});

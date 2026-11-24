@@ -199,7 +199,27 @@
     if (enabled) start();
   }
 
+  /* ─── 3) 크롬이 팝업 안 스크립트에게 숨기는 쿠키를 보충 ─────
+     크롬판 백그라운드(background-chrome.js)가 이 주소의 쿠키 중 HttpOnly 가 아닌 것을
+     돌려주면, 페이지 공간의 content/page-patch.js 에 넘겨 document.cookie 에 보이게 한다.
+     파이어폭스 백그라운드는 이 메시지에 답하지 않으므로 아무 일도 일어나지 않는다. */
+  function shareCookies() {
+    let sending;
+    try {
+      sending = browser.runtime.sendMessage({ type: 'nvd-popup-cookies' });
+    } catch (e) {
+      return;
+    }
+    if (!sending || !sending.then) return;
+    sending.then((list) => {
+      if (!Array.isArray(list) || !list.length) return;
+      document.dispatchEvent(new CustomEvent('nvd-popup-cookies', { detail: JSON.stringify(list) }));
+      log('팝업에서 숨겨진 쿠키 보충:', list.map((c) => c[0]).join(', '));
+    }).catch(() => {});
+  }
+
   if (IN_POPUP) {
+    shareCookies();
     if (document.readyState === 'complete') watchView();
     else window.addEventListener('load', watchView, { once: true });
   }

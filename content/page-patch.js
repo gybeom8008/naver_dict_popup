@@ -7,7 +7,8 @@
 
    이 파일은 페이지와 같은 공간에서 돌기 때문에 확장기능 API 도, common/defaults.js 도
    쓸 수 없다. 필요한 값은 팝업이 아이프레임 이름에
-   "nvd-popup-view|ua=...&lang=ko-KR,ko" 형태로 넣어 준다.
+   "nvd-popup-view|ua=...&lang=ko-KR,ko" 형태로 넣어 주고,
+   쿠키 보충 목록은 content/naver-dict.js 가 'nvd-popup-cookies' 이벤트로 건네준다.
    전역 이름을 남기지 않도록 즉시 실행 함수로 감싼다. */
 
 (() => {
@@ -18,12 +19,11 @@
   try { name = window.name || ''; } catch (e) { return; }
 
   const pieces = name.split('|');
-  if (window.top === window.self || pieces[0] !== FRAME_NAME || !pieces[1]) return;
+  if (window.top === window.self || pieces[0] !== FRAME_NAME) return;
 
-  const params = new URLSearchParams(pieces[1]);
+  const params = new URLSearchParams(pieces[1] || '');
   const ua = params.get('ua') || null;
   const langs = params.get('lang') ? params.get('lang').split(',') : null;
-  if (!ua && !langs) return;
 
   try {
     const proto = Object.getPrototypeOf(navigator);
@@ -59,23 +59,62 @@
     if (langs) {
       define('language', langs[0]);
       define('languages', Object.freeze(langs.slice()));
-
-      /* 네이버 언어 메뉴로 고른 언어(DICT_LOCALE3 쿠키)가 설정보다 앞서지 않도록 가린다 */
-      const cookie = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
-      if (cookie && cookie.get && cookie.set) {
-        Object.defineProperty(Document.prototype, 'cookie', {
-          configurable: true,
-          get() {
-            return cookie.get.call(this)
-              .split(/;\s*/)
-              .filter((c) => !c.startsWith('DICT_LOCALE3='))
-              .join('; ');
-          },
-          set(value) {
-            cookie.set.call(this, value);
-          }
-        });
-      }
     }
+  } catch (e) {}
+
+  /* ── document.cookie ──────────────────────────────────
+     1) 크롬은 확장 팝업 안의 페이지 스크립트에게 SameSite=Lax 쿠키(로그인 쿠키 NID_SES 등)를
+        숨긴다. 요청에는 실리므로 서버는 로그인 상태로 보지만, 네이버 스크립트는
+        document.cookie 에 NID_SES 가 없으면 로그아웃으로 판단해 검색 기록 등을 막는다.
+        그래서 콘텐츠 스크립트가 확장기능에서 받아 온 쿠키(일반 탭이라면 이 페이지가
+        읽을 수 있었을 것, 즉 HttpOnly 가 아닌 것)를 보충해 보인다.
+     2) 팝업 언어를 정했으면 네이버 언어 메뉴로 고른 언어(DICT_LOCALE3 쿠키)가
+        설정보다 앞서지 않도록 가린다. */
+  try {
+    const cookie = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
+    if (!cookie || !cookie.get || !cookie.set) return;
+
+    let extra = [];   /* [이름, 값] 목록 */
+
+    document.addEventListener('nvd-popup-cookies', (event) => {
+      try {
+        const list = JSON.parse(event.detail);
+        if (Array.isArray(list)) extra = list.filter((c) => Array.isArray(c) && c.length === 2);
+      } catch (e) {}
+    });
+
+    Object.defineProperty(Document.prototype, 'cookie', {
+      configurable: true,
+      get() {
+        const real = cookie.get.call(this);
+        const parts = real ? real.split(/;\s*/) : [];
+        const seen = new Set(parts.map((c) => c.split('=')[0]));
+        for (const [n, v] of extra) {
+          if (!seen.has(n)) parts.push(n + '=' + v);
+        }
+        return (langs ? parts.filter((c) => !c.startsWith('DICT_LOCALE3=')) : parts).join('; ');
+      },
+      set(value) {
+        cookie.set.call(this, value);
+
+        /* 보충 목록에 있는 쿠키를 페이지가 바꾸면, 크롬이 그 쓰기를 막더라도
+           페이지에는 바꾼 값(지웠으면 지운 상태)이 보이게 한다 */
+        const text = String(value);
+        const first = text.split(';')[0];
+        const eq = first.indexOf('=');
+        if (eq < 0) return;
+        const n = first.slice(0, eq).trim();
+        if (!extra.some((c) => c[0] === n)) return;
+
+        const attrs = text.slice(first.length).toLowerCase();
+        const maxAge = attrs.match(/;\s*max-age\s*=\s*(-?\d+)/);
+        const expires = attrs.match(/;\s*expires\s*=\s*([^;]+)/);
+        const removed = (maxAge && Number(maxAge[1]) <= 0) ||
+          (!maxAge && expires && Date.parse(expires[1]) <= Date.now());
+
+        extra = extra.filter((c) => c[0] !== n);
+        if (!removed) extra.push([n, first.slice(eq + 1).trim()]);
+      }
+    });
   } catch (e) {}
 })();
