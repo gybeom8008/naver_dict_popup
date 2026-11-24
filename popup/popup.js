@@ -146,9 +146,14 @@ function prepareView(cookies) {
   return view;
 }
 
+/* 크롬에서는 아이프레임 요소에 focus() 를 해도 그 안의 (다른 출처) 문서는
+   document.hasFocus() 가 false 로 남아, 콘텐츠 스크립트가 검색창 포커스를 건너뛴다.
+   contentWindow.focus() 까지 불러야 프레임 문서가 포커스를 가진다. */
 function focusView() {
   const view = nvdEl('view');
-  if (view) view.focus();
+  if (!view) return;
+  view.focus();
+  try { if (view.contentWindow) view.contentWindow.focus(); } catch (e) {}
 }
 
 function onViewLoad() {
