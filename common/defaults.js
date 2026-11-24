@@ -11,10 +11,12 @@ if (typeof globalThis.browser === 'undefined' && typeof globalThis.chrome !== 'u
 
 const NVD_IS_FIREFOX = typeof navigator !== 'undefined' && /\bFirefox\//.test(navigator.userAgent);
 
-/* 헤더 조작·아이프레임 삽입에 필요한 호스트 권한 (MV3에서는 사용자가 허용해야 함) */
+/* 헤더 조작·아이프레임 삽입에 필요한 호스트 권한 (파이어폭스 MV3에서는 사용자가 허용해야 함).
+   사전만 쓰지만 naver.com 전체를 둔다. 크롬은 확장 팝업 안의 요청에 대해 권한이 있는
+   주소에만 SameSite=Lax/Strict 쿠키를 보내므로, 로그인 상태를 묻는 nid·gnb.naver.com 까지
+   권한이 있어야 팝업에서도 로그인이 이어진다. */
 const NVD_HOST_ORIGINS = [
-  '*://dict.naver.com/*',
-  '*://*.dict.naver.com/*',
+  '*://*.naver.com/*',
   '*://*.naver.net/*',
   '*://*.pstatic.net/*'
 ];

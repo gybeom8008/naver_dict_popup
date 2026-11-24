@@ -24,7 +24,7 @@ const NVD_RULE_REQUEST = 1;
 const NVD_RULE_RESPONSE = 2;
 
 /* NVD_HOST_ORIGINS 와 같은 범위 (하위 도메인 포함) */
-const NVD_REQUEST_DOMAINS = ['dict.naver.com', 'naver.net', 'pstatic.net'];
+const NVD_REQUEST_DOMAINS = ['naver.com', 'naver.net', 'pstatic.net'];
 
 function nvdBuildRules(cfg) {
   const rules = [];
