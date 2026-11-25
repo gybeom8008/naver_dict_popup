@@ -2,12 +2,6 @@
 
 const nvdEl = (id) => document.getElementById(id);
 
-/* 핀 창(common/pin.js 가 띄운 별도 창)으로 열렸는지, 처음 보여 줄 주소가 있는지 */
-const PAGE_PARAMS = new URLSearchParams(location.search);
-const PINNED = PAGE_PARAMS.get('pinned') === '1';
-const START_URL = PAGE_PARAMS.get('url');
-if (PINNED) document.documentElement.classList.add('pinned');
-
 let settings = null;
 let activeId = null;
 
@@ -32,11 +26,6 @@ function activeDict() {
 
 /* 팝업을 열 때 보여 줄 화면 */
 function initialView() {
-  /* 핀을 누를 때 보던 화면을 핀 창에서 이어 간다 */
-  if (START_URL) {
-    const dict = nvdDictForUrl(START_URL);
-    if (dict && settings.tabs.includes(dict.id)) return { id: dict.id, url: START_URL };
-  }
   if (settings.keepLastView && settings.lastUrl) {
     const dict = nvdDictForUrl(settings.lastUrl);
     if (dict && settings.tabs.includes(dict.id)) {
@@ -59,12 +48,11 @@ function initialTabId() {
 }
 
 function applyChrome() {
-  /* 핀 창은 창 크기를 그대로 채운다 (popup.css 의 html.pinned) */
-  if (PINNED) return;
   const size = nvdPopupSize(settings);
   const root = document.documentElement;
   root.style.setProperty('--popup-w', size.width + 'px');
   root.style.setProperty('--popup-h', size.height + 'px');
+
 }
 
 function renderTabs() {
@@ -246,17 +234,9 @@ async function init() {
 
   refreshPermissionNotice();
 
-  /* 툴바 팝업은 탭이 아니고, 핀 창은 탭이다. 자기 안의 프레임에서 온 것만 받는다. */
-  let ownTabId = null;
-  try {
-    const own = await browser.tabs.getCurrent();
-    if (own) ownTabId = own.id;
-  } catch (e) {}
-
   browser.runtime.onMessage.addListener((message, sender) => {
     if (!message || message.type !== 'nvd-view-state') return;
-    const fromTab = sender && sender.tab ? sender.tab.id : null;
-    if (fromTab !== ownTabId) return;           /* 일반 탭이나 다른 창에서 온 것은 무시 */
+    if (sender && sender.tab) return;           /* 일반 탭에서 온 것은 무시 */
     viewState = { query: message.query || '', url: message.url || null };
     if (settings.keepLastView) scheduleLastUrlSave();
   });
@@ -271,11 +251,9 @@ async function init() {
     if (!dict) return;
     try {
       await browser.tabs.create({ url: dict.url });
-      if (!PINNED) window.close();
+      window.close();
     } catch (e) {}
   });
-
-  setupPin();
 
   nvdEl('permBtn').addEventListener('click', async () => {
     try {
@@ -297,7 +275,7 @@ async function init() {
   browser.storage.onChanged.addListener(async (changes, area) => {
     if (area !== 'local') return;
     const keys = Object.keys(changes);
-    if (keys.every((k) => NVD_VIEW_KEYS.includes(k))) return;
+    if (keys.every((k) => k === 'lastTabId' || k === 'lastUrl')) return;
 
     const before = settings;
     const beforeUrl = activeDict() ? activeDict().url : null;
@@ -318,51 +296,6 @@ async function init() {
       if (frameChanged || (dict && dict.url !== beforeUrl)) reloadView();
     }
   });
-}
-
-/* ── 핀 ──────────────────────────────────────────────
-   툴바 팝업은 포커스를 잃으면 브라우저가 닫아 버리므로, 핀을 누르면
-   백그라운드(common/pin.js)가 같은 화면을 별도 창으로 띄운다.
-   핀 창에서 다시 누르면 핀을 풀고 창을 닫는다. */
-
-function setupPin() {
-  const button = nvdEl('pin');
-  button.classList.toggle('on', PINNED);
-  button.setAttribute('aria-pressed', PINNED ? 'true' : 'false');
-  button.title = PINNED ? '고정 풀기 (창 닫힘)' : '창으로 고정 (다른 창으로 옮겨 가도 남아 있음)';
-  button.setAttribute('aria-label', button.title);
-
-  button.addEventListener('click', async () => {
-    const url = viewState.url || (activeDict() ? activeDict().url : null);
-    try {
-      await browser.runtime.sendMessage({ type: 'nvd-pin', pinned: !PINNED, url: url });
-    } catch (e) {}
-    /* 핀을 켤 때: 핀 창이 떴으니 툴바 팝업은 닫는다. 끌 때는 백그라운드가 이 창을 닫는다. */
-    if (!PINNED) window.close();
-  });
-
-  if (PINNED) watchPinBounds();
-}
-
-/* 사용자가 핀 창을 옮기거나 크기를 바꾸면 기억해 두었다가 다음에 그 자리에 띄운다 */
-function watchPinBounds() {
-  let last = '';
-  let timer = null;
-  setInterval(() => {
-    const bounds = {
-      left: window.screenX,
-      top: window.screenY,
-      width: window.outerWidth,
-      height: window.outerHeight
-    };
-    const key = JSON.stringify(bounds);
-    if (key === last) return;
-    last = key;
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      browser.storage.local.set({ pinBounds: bounds }).catch(() => {});
-    }, 600);
-  }, 1000);
 }
 
 init();

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "네이버 사전 (비공식)",
-  "version": "1.6.0",
+  "version": "1.5.4",
   "description": "네이버 사전 검색창에서 첫 글자의 한/영이 뒤바뀌는 문제에 대응해, 검색창에 미리 커서를 놓는 옵션을 제공합니다. 사전은 툴바 팝업에서 모바일 뷰로 열립니다.",
   "browser_specific_settings": {
     "gecko": {
@@ -52,7 +52,6 @@
   "background": {
     "scripts": [
       "common/defaults.js",
-      "common/pin.js",
       "background.js"
     ],
     "service_worker": "background-chrome.js"

@@ -9,7 +9,6 @@
 
    "팝업에서 나간 요청"은 tabId 가 -1(어느 탭에도 속하지 않음)인 것으로 가린다.
    확장기능 팝업은 탭이 아니어서, 그 안의 아이프레임과 하위 리소스 요청이 모두 -1 이 된다.
-   핀 창(common/pin.js)은 탭이므로 그 탭 번호를 함께 넣는다.
    일반 탭의 네이버는 건드리지 않는다.
 
    파이어폭스판과 다른 점
@@ -19,7 +18,7 @@
    - CSP frame-ancestors 는 지시어 하나만 골라 뺄 수 없어 손대지 않는다.
      (2026-09 확인 기준으로 네이버는 X-Frame-Options 도 CSP frame-ancestors 도 보내지 않는다.) */
 
-importScripts('common/defaults.js', 'common/pin.js');
+importScripts('common/defaults.js');
 
 const NVD_RULE_REQUEST = 1;
 const NVD_RULE_RESPONSE = 2;
@@ -27,7 +26,7 @@ const NVD_RULE_RESPONSE = 2;
 /* NVD_HOST_ORIGINS 와 같은 범위 (하위 도메인 포함) */
 const NVD_REQUEST_DOMAINS = ['naver.com', 'naver.net', 'pstatic.net'];
 
-function nvdBuildRules(cfg, tabIds) {
+function nvdBuildRules(cfg) {
   const rules = [];
   const headers = [];
 
@@ -49,7 +48,7 @@ function nvdBuildRules(cfg, tabIds) {
       id: NVD_RULE_REQUEST,
       priority: 1,
       action: { type: 'modifyHeaders', requestHeaders: headers },
-      condition: { tabIds: tabIds, requestDomains: NVD_REQUEST_DOMAINS }
+      condition: { tabIds: [-1], requestDomains: NVD_REQUEST_DOMAINS }
     });
   }
 
@@ -60,7 +59,7 @@ function nvdBuildRules(cfg, tabIds) {
       type: 'modifyHeaders',
       responseHeaders: [{ header: 'X-Frame-Options', operation: 'remove' }]
     },
-    condition: { tabIds: tabIds, requestDomains: NVD_REQUEST_DOMAINS, resourceTypes: ['sub_frame'] }
+    condition: { tabIds: [-1], requestDomains: NVD_REQUEST_DOMAINS, resourceTypes: ['sub_frame'] }
   });
 
   return rules;
@@ -73,15 +72,10 @@ function nvdSyncRules() {
   nvdSyncing = nvdSyncing.then(async () => {
     try {
       const cfg = await nvdLoadSettings();
-      const tabIds = [-1];
-      try {
-        const { pinTabId } = await chrome.storage.session.get('pinTabId');
-        if (typeof pinTabId === 'number') tabIds.push(pinTabId);
-      } catch (e) {}
       const existing = await chrome.declarativeNetRequest.getSessionRules();
       await chrome.declarativeNetRequest.updateSessionRules({
         removeRuleIds: existing.map((r) => r.id),
-        addRules: nvdBuildRules(cfg, tabIds)
+        addRules: nvdBuildRules(cfg)
       });
     } catch (e) {
       console.warn('[네이버 사전 팝업] 요청 규칙 등록 실패:', e);
@@ -97,7 +91,7 @@ chrome.runtime.onInstalled.addListener(nvdSyncRules);
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local') return;
   const keys = Object.keys(changes);
-  if (keys.every((k) => NVD_VIEW_KEYS.includes(k))) return;
+  if (keys.every((k) => k === 'lastTabId' || k === 'lastUrl')) return;
   nvdSyncRules();
 });
 

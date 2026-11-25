@@ -30,9 +30,6 @@
 
 html, body { margin: 0; padding: 0; overflow: hidden; }
 
-/* 핀 창에서는 창 크기를 그대로 채운다 */
-html.pinned { --popup-w: 100vw; --popup-h: 100vh; }
-
 body {
   width: var(--popup-w);
   height: var(--popup-h);
