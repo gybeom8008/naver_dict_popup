@@ -19,9 +19,13 @@ async function nvdSyncOpenMode() {
     await browser.action.setPopup({ popup: sidebar ? '' : NVD_POPUP_PATH });
   } catch (e) {}
 
+  /* 파이어폭스 방식(sidebarAction)이 있으면 크롬 방식(sidePanel)은 쓰지 않는다.
+     나중에 파이어폭스가 크롬 호환용 sidePanel 을 구현해도, 아이콘 한 번에 두 방식이
+     함께 돌아 사이드바가 열리자마자 닫히는 일이 없도록 크롬 방식은 꺼 둔다. */
   if (browser.sidePanel && browser.sidePanel.setPanelBehavior) {
+    const useSidePanel = sidebar && !browser.sidebarAction;
     try {
-      await browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: sidebar });
+      await browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: useSidePanel });
     } catch (e) {}
   }
 }
