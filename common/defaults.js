@@ -140,6 +140,9 @@ const NVD_DEFAULTS = {
   imeDebug: false
 };
 
+/* 설정이 아니라 팝업이 스스로 기록하는 값. 이것만 바뀌었을 때는 화면을 다시 그리지 않는다. */
+const NVD_VIEW_KEYS = ['lastTabId', 'lastUrl', 'pinned', 'pinBounds'];
+
 const NVD_LIMITS = {
   width:  { min: 300, max: 800 },
   height: { min: 260, max: 600 }
@@ -239,6 +242,11 @@ function nvdMergeSettings(stored) {
   s.autoFocusInTab = !!s.autoFocusInTab;
   s.autoFocusInPopup = !!s.autoFocusInPopup;
   s.imeDebug = !!s.imeDebug;
+
+  /* 핀 상태와 핀 창 위치는 common/pin.js 와 핀 창이 따로 읽고 쓴다.
+     설정 화면이 옛 값을 다시 저장해 덮어쓰지 않도록 설정 묶음에서 뺀다. */
+  delete s.pinned;
+  delete s.pinBounds;
 
   /* 더 이상 쓰지 않는 키는 흘려보낸다 */
   delete s.imeFixEnabled;
