@@ -2,6 +2,9 @@
 
 const nvdEl = (id) => document.getElementById(id);
 
+/* sidebar.html 로 열렸으면 사이드바 (popup.html 과 같은 화면) */
+const IN_SIDEBAR = document.documentElement.classList.contains('sidebar');
+
 let settings = null;
 let activeId = null;
 
@@ -48,6 +51,8 @@ function initialTabId() {
 }
 
 function applyChrome() {
+  /* 사이드바는 사이드바 크기를 그대로 채운다 (popup.css 의 html.sidebar) */
+  if (IN_SIDEBAR) return;
   const size = nvdPopupSize(settings);
   const root = document.documentElement;
   root.style.setProperty('--popup-w', size.width + 'px');
@@ -251,7 +256,7 @@ async function init() {
     if (!dict) return;
     try {
       await browser.tabs.create({ url: dict.url });
-      window.close();
+      if (!IN_SIDEBAR) window.close();
     } catch (e) {}
   });
 

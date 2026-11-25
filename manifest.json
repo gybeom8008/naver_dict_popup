@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "네이버 사전 (비공식)",
-  "version": "1.5.4",
+  "version": "1.6.0",
   "description": "네이버 사전 검색창에서 첫 글자의 한/영이 뒤바뀌는 문제에 대응해, 검색창에 미리 커서를 놓는 옵션을 제공합니다. 사전은 툴바 팝업에서 모바일 뷰로 열립니다.",
   "browser_specific_settings": {
     "gecko": {
@@ -33,6 +33,18 @@
       "48": "icons/48.png"
     }
   },
+  "side_panel": {
+    "default_path": "popup/sidebar.html"
+  },
+  "sidebar_action": {
+    "default_title": "네이버 사전",
+    "default_panel": "popup/sidebar.html",
+    "default_icon": {
+      "16": "icons/16.png",
+      "32": "icons/32.png"
+    },
+    "open_at_install": false
+  },
   "options_ui": {
     "page": "options/options.html",
     "open_in_tab": false
@@ -42,7 +54,8 @@
     "webRequest",
     "webRequestBlocking",
     "declarativeNetRequestWithHostAccess",
-    "cookies"
+    "cookies",
+    "sidePanel"
   ],
   "host_permissions": [
     "*://*.naver.com/*",
@@ -52,6 +65,7 @@
   "background": {
     "scripts": [
       "common/defaults.js",
+      "common/open-mode.js",
       "background.js"
     ],
     "service_worker": "background-chrome.js"

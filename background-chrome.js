@@ -18,7 +18,7 @@
    - CSP frame-ancestors 는 지시어 하나만 골라 뺄 수 없어 손대지 않는다.
      (2026-09 확인 기준으로 네이버는 X-Frame-Options 도 CSP frame-ancestors 도 보내지 않는다.) */
 
-importScripts('common/defaults.js');
+importScripts('common/defaults.js', 'common/open-mode.js');
 
 const NVD_RULE_REQUEST = 1;
 const NVD_RULE_RESPONSE = 2;

@@ -101,6 +101,12 @@ const NVD_LANGUAGES = {
   browser: { label: '브라우저 설정 따름', tags: null }
 };
 
+/* 툴바 아이콘을 눌렀을 때 사전을 어디에 열지 */
+const NVD_OPEN_MODES = {
+  popup:   { label: '팝업' },
+  sidebar: { label: '사이드바' }
+};
+
 /* 팝업 크기 (파이어폭스·크롬 모두 상한 800 x 600) */
 const NVD_POPUP_PRESETS = {
   small:  { label: '작게',      width: 340, height: 440 },
@@ -116,6 +122,8 @@ const NVD_DEFAULTS = {
   lastTabId: null,
 
   popupLanguage: 'ko',
+
+  openIn: 'popup',
 
   /* 팝업에서 사전을 바꿀 때 검색어를 이어서 검색한다 */
   carryQuery: true,
@@ -207,6 +215,10 @@ function nvdMergeSettings(stored) {
   }
   s.popupWidth = nvdClamp(s.popupWidth, NVD_LIMITS.width, NVD_DEFAULTS.popupWidth);
   s.popupHeight = nvdClamp(s.popupHeight, NVD_LIMITS.height, NVD_DEFAULTS.popupHeight);
+
+  if (!Object.prototype.hasOwnProperty.call(NVD_OPEN_MODES, s.openIn)) {
+    s.openIn = NVD_DEFAULTS.openIn;
+  }
 
   if (!Object.prototype.hasOwnProperty.call(NVD_LANGUAGES, s.popupLanguage)) {
     s.popupLanguage = NVD_DEFAULTS.popupLanguage;
