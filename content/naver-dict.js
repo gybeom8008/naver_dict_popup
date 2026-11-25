@@ -1,12 +1,11 @@
 'use strict';
 
 /* 네이버 사전 페이지(팝업 안이든 일반 탭이든)에서 하는 일
-   1) 우리 팝업 아이프레임일 때만 navigator 의 userAgent·언어를 설정대로 바꿔 보인다.
-      (HTTP 헤더는 백그라운드가 이미 바꾸지만, 언어별 사전은 SPA라서
-       브라우저 안에서 navigator 를 직접 보고 모바일 여부와 표시 언어를 정한다.)
-   2) 페이지가 다 뜬 뒤 검색창에 커서를 놓는다.
+   1) 페이지가 다 뜬 뒤 검색창에 커서를 놓는다.
+   2) 팝업 안이면 지금 보고 있는 검색어·주소를 팝업에 알린다.
+   (팝업 프레임의 navigator 변경은 content/page-patch.js 가 맡는다.)
 
-   2번이 필요한 이유: 네이버 사전은 검색창에 자동 포커스를 주지 않는다
+   1번이 필요한 이유: 네이버 사전은 검색창에 자동 포커스를 주지 않는다
    (번들에 autofocus 속성도, 검색창 focus() 호출도 없다). 그래서 페이지를 열고
    바로 타이핑하면 첫 글자는 IME(한/영) 상태가 확정되기 전에 들어가 언어가
    뒤바뀌고, 그 뒤에야 제대로 전환된다. 검색창을 직접 한 번 클릭하면 괜찮은
@@ -36,79 +35,13 @@
   let started = false;
   let userActed = false;
 
-  /* ─── 0) 팝업 아이프레임이면 navigator 를 설정대로 바꿔 보인다 (동기 실행) ─── */
-
-  /* 팝업이 아이프레임 이름에 "nvd-popup-view|ua=...&lang=ko-KR,ko" 형태로 넣어 준다 */
+  /* ─── 0) 팝업 아이프레임인지 판별 ─────────────────────
+     navigator 를 바꿔 보이는 일은 content/page-patch.js 가 페이지 공간에서 한다.
+     팝업이 아이프레임 이름에 "nvd-popup-view|..." 표식을 넣어 준다. */
   const frameName = (() => {
     try { return window.name || ''; } catch (e) { return ''; }
   })();
-  const framePieces = frameName.split('|');
-  const IN_POPUP = window.top !== window.self && framePieces[0] === NVD_FRAME_NAME;
-
-  if (IN_POPUP && framePieces[1]) {
-    const params = new URLSearchParams(framePieces[1]);
-    const ua = params.get('ua') || null;
-    const langs = params.get('lang') ? params.get('lang').split(',') : null;
-    if (ua || langs) injectIntoPage(pagePatch, [ua, langs]);
-  }
-
-  /* 페이지 쪽에서 실행되는 코드. 콘텐츠 스크립트는 분리된 공간에서 돌아
-     페이지의 navigator 를 직접 바꿀 수 없으므로 <script> 로 넣는다.
-     바깥 변수에 기대지 않아야 한다 (toString 으로 옮겨 가므로). */
-  function pagePatch(ua, langs) {
-    try {
-      const proto = Object.getPrototypeOf(navigator);
-      const define = (key, value) => {
-        try {
-          Object.defineProperty(proto, key, { get: () => value, configurable: true });
-        } catch (e) {}
-      };
-
-      /* 언어별 사전은 서버 응답이 같고, 모바일 여부를 브라우저 안에서 정한다 */
-      if (ua) {
-        define('userAgent', ua);
-        define('appVersion', ua.replace(/^Mozilla\//, ''));
-        define('platform', 'Linux armv8l');
-        define('vendor', '');
-      }
-
-      /* 네이버는 navigator.languages 가 한국어가 아니면 외국인용 사전으로 보낸다 */
-      if (langs) {
-        define('language', langs[0]);
-        define('languages', Object.freeze(langs.slice()));
-
-        /* 네이버 언어 메뉴로 고른 언어(DICT_LOCALE3 쿠키)가 설정보다 앞서지 않도록 가린다 */
-        const cookie = Object.getOwnPropertyDescriptor(Document.prototype, 'cookie');
-        if (cookie && cookie.get && cookie.set) {
-          Object.defineProperty(Document.prototype, 'cookie', {
-            configurable: true,
-            get() {
-              return cookie.get.call(this)
-                .split(/;\s*/)
-                .filter((c) => !c.startsWith('DICT_LOCALE3='))
-                .join('; ');
-            },
-            set(value) {
-              cookie.set.call(this, value);
-            }
-          });
-        }
-      }
-    } catch (e) {}
-  }
-
-  function injectIntoPage(fn, args) {
-    try {
-      const host = document.head || document.documentElement;
-      if (!host) return;
-      const script = document.createElement('script');
-      script.textContent = '(' + fn.toString() + ').apply(null, ' + JSON.stringify(args) + ');';
-      host.appendChild(script);
-      script.remove();
-    } catch (e) {
-      /* 페이지 CSP 등 — 무시하고 HTTP 헤더 변경만 적용된다 */
-    }
-  }
+  const IN_POPUP = window.top !== window.self && frameName.split('|')[0] === NVD_FRAME_NAME;
 
   /* ─── 1) 검색창 포커스 ──────────────────────────────── */
 
@@ -266,7 +199,27 @@
     if (enabled) start();
   }
 
+  /* ─── 3) 크롬이 팝업 안 스크립트에게 숨기는 쿠키를 보충 ─────
+     크롬판 백그라운드(background-chrome.js)가 이 주소의 쿠키 중 HttpOnly 가 아닌 것을
+     돌려주면, 페이지 공간의 content/page-patch.js 에 넘겨 document.cookie 에 보이게 한다.
+     파이어폭스 백그라운드는 이 메시지에 답하지 않으므로 아무 일도 일어나지 않는다. */
+  function shareCookies() {
+    let sending;
+    try {
+      sending = browser.runtime.sendMessage({ type: 'nvd-popup-cookies' });
+    } catch (e) {
+      return;
+    }
+    if (!sending || !sending.then) return;
+    sending.then((list) => {
+      if (!Array.isArray(list) || !list.length) return;
+      document.dispatchEvent(new CustomEvent('nvd-popup-cookies', { detail: JSON.stringify(list) }));
+      log('팝업에서 숨겨진 쿠키 보충:', list.map((c) => c[0]).join(', '));
+    }).catch(() => {});
+  }
+
   if (IN_POPUP) {
+    shareCookies();
     if (document.readyState === 'complete') watchView();
     else window.addEventListener('load', watchView, { once: true });
   }

@@ -208,6 +208,20 @@ function renderLanguageSelect() {
   select.value = settings.popupLanguage;
 }
 
+/* ── 열기 방식 ───────────────────────────────────────── */
+
+function renderOpenInSelect() {
+  const select = nvdEl('openIn');
+  select.textContent = '';
+  for (const [key, mode] of Object.entries(NVD_OPEN_MODES)) {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = mode.label;
+    select.appendChild(option);
+  }
+  select.value = settings.openIn;
+}
+
 /* ── 권한 ────────────────────────────────────────────── */
 
 async function refreshPermission() {
@@ -250,6 +264,7 @@ function renderAll() {
   renderTabs();
   renderSizeChoices();
   renderLanguageSelect();
+  renderOpenInSelect();
   updateTabOpenState();
 }
 
@@ -294,6 +309,11 @@ async function init() {
 
   nvdEl('carryQuery').addEventListener('change', (event) => {
     settings.carryQuery = event.target.checked;
+    save();
+  });
+
+  nvdEl('openIn').addEventListener('change', (event) => {
+    settings.openIn = event.target.value;
     save();
   });
 

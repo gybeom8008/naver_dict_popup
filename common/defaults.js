@@ -3,10 +3,20 @@
 /* 팝업 / 설정 / 백그라운드 / 콘텐츠 스크립트가 함께 쓰는 기본값과 헬퍼.
    모듈이 아닌 일반 스크립트이므로 이름 충돌을 피해 NVD_ 접두사를 쓴다. */
 
-/* 헤더 조작·아이프레임 삽입에 필요한 호스트 권한 (MV3에서는 사용자가 허용해야 함) */
+/* 크롬에는 browser 네임스페이스가 없다. MV3 크롬의 chrome.* 는 프로미스를 돌려주므로
+   그대로 browser 라는 이름으로 써도 된다. 파이어폭스에서는 아무것도 하지 않는다. */
+if (typeof globalThis.browser === 'undefined' && typeof globalThis.chrome !== 'undefined') {
+  globalThis.browser = globalThis.chrome;
+}
+
+const NVD_IS_FIREFOX = typeof navigator !== 'undefined' && /\bFirefox\//.test(navigator.userAgent);
+
+/* 헤더 조작·아이프레임 삽입에 필요한 호스트 권한 (파이어폭스 MV3에서는 사용자가 허용해야 함).
+   사전만 쓰지만 naver.com 전체를 둔다. 크롬은 확장 팝업 안의 요청에 대해 권한이 있는
+   주소에만 SameSite=Lax/Strict 쿠키를 보내므로, 로그인 상태를 묻는 nid·gnb.naver.com 까지
+   권한이 있어야 팝업에서도 로그인이 이어진다. */
 const NVD_HOST_ORIGINS = [
-  '*://dict.naver.com/*',
-  '*://*.dict.naver.com/*',
+  '*://*.naver.com/*',
   '*://*.naver.net/*',
   '*://*.pstatic.net/*'
 ];
@@ -15,8 +25,10 @@ const NVD_HOST_ORIGINS = [
    document_start 시점에 window.name 으로 읽는다. */
 const NVD_FRAME_NAME = 'nvd-popup-view';
 
-const NVD_MOBILE_UA =
-  'Mozilla/5.0 (Android 14; Mobile; rv:143.0) Gecko/143.0 Firefox/143.0';
+/* 모바일 UA 기본값은 지금 쓰는 브라우저의 안드로이드판으로 한다 */
+const NVD_MOBILE_UA = NVD_IS_FIREFOX
+  ? 'Mozilla/5.0 (Android 14; Mobile; rv:143.0) Gecko/143.0 Firefox/143.0'
+  : 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36';
 
 /* 네이버 사전이 제공하는 사전 목록. 탭은 이 목록의 id 로만 저장하므로
    사용자가 주소를 직접 입력할 일이 없다. (dict.naver.com 홈에서 추출) */
@@ -89,7 +101,13 @@ const NVD_LANGUAGES = {
   browser: { label: '브라우저 설정 따름', tags: null }
 };
 
-/* 팝업 크기 (파이어폭스 상한 800 x 600) */
+/* 툴바 아이콘을 눌렀을 때 사전을 어디에 열지 */
+const NVD_OPEN_MODES = {
+  popup:   { label: '팝업' },
+  sidebar: { label: '사이드바' }
+};
+
+/* 팝업 크기 (파이어폭스·크롬 모두 상한 800 x 600) */
 const NVD_POPUP_PRESETS = {
   small:  { label: '작게',      width: 340, height: 440 },
   medium: { label: '중간',      width: 420, height: 560 },
@@ -104,6 +122,8 @@ const NVD_DEFAULTS = {
   lastTabId: null,
 
   popupLanguage: 'ko',
+
+  openIn: 'popup',
 
   /* 팝업에서 사전을 바꿀 때 검색어를 이어서 검색한다 */
   carryQuery: true,
@@ -195,6 +215,10 @@ function nvdMergeSettings(stored) {
   }
   s.popupWidth = nvdClamp(s.popupWidth, NVD_LIMITS.width, NVD_DEFAULTS.popupWidth);
   s.popupHeight = nvdClamp(s.popupHeight, NVD_LIMITS.height, NVD_DEFAULTS.popupHeight);
+
+  if (!Object.prototype.hasOwnProperty.call(NVD_OPEN_MODES, s.openIn)) {
+    s.openIn = NVD_DEFAULTS.openIn;
+  }
 
   if (!Object.prototype.hasOwnProperty.call(NVD_LANGUAGES, s.popupLanguage)) {
     s.popupLanguage = NVD_DEFAULTS.popupLanguage;
